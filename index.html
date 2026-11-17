@@ -218,8 +218,16 @@
   </dialog>
 
   <script>
-    // Se conserva el orden cronológico de los nombres originales de las descargas.
-    const imageFiles = [
+    const gallery = document.getElementById("gallery");
+    const dialog = document.getElementById("lightbox");
+    const modalImage = document.getElementById("lightbox-image");
+    const caption = document.getElementById("lightbox-caption");
+    const closeButton = document.getElementById("close-lightbox");
+    let selectedIndex = 0;
+    let imageFiles = [];
+
+    const renamedImageFiles = Array.from({ length: 60 }, (_, index) => `img${index + 1}.jpeg`);
+    const legacyImageFiles = [
       "WhatsApp Image 2026-11-17 at 1.08.44 PM.jpeg",
       "WhatsApp Image 2026-11-17 at 1.08.44 PM (1).jpeg",
       "WhatsApp Image 2026-11-17 at 1.08.45 PM.jpeg",
@@ -271,41 +279,63 @@
       "WhatsApp Image 2026-11-17 at 1.08.55 PM (3).jpeg"
     ];
 
-    const gallery = document.getElementById("gallery");
-    const dialog = document.getElementById("lightbox");
-    const modalImage = document.getElementById("lightbox-image");
-    const caption = document.getElementById("lightbox-caption");
-    const closeButton = document.getElementById("close-lightbox");
-    let selectedIndex = 0;
-
     const imageUrl = (file) => `assets/img/${encodeURIComponent(file)}`;
     const artworkLabel = (index) => `Obra artesanal ${String(index + 1).padStart(2, "0")}`;
 
-    imageFiles.forEach((file, index) => {
-      const item = document.createElement("li");
-      item.className = "gallery-item";
-      const figure = document.createElement("figure");
-      const button = document.createElement("button");
-      button.className = "gallery-button";
-      button.type = "button";
-      button.setAttribute("aria-label", `Ampliar ${artworkLabel(index)}`);
-      button.dataset.index = String(index);
+    async function resolveImageFiles() {
+      const candidates = [...new Set([...renamedImageFiles, ...legacyImageFiles])];
+      const availableFiles = [];
 
-      const image = document.createElement("img");
-      image.src = imageUrl(file);
-      image.alt = `${artworkLabel(index)}; fotografía de una pieza artesanal en metal o madera`;
-      image.loading = index < 6 ? "eager" : "lazy";
-      image.decoding = "async";
-      button.append(image);
+      for (const file of candidates) {
+        try {
+          const response = await fetch(file, { method: "HEAD" });
+          if (response.ok) {
+            availableFiles.push(file);
+            if (availableFiles.length >= 60) break;
+          }
+        } catch (error) {
+          // Si el archivo no existe, se ignora y se prueba el siguiente nombre.
+        }
+      }
 
-      const figcaption = document.createElement("figcaption");
-      figcaption.textContent = artworkLabel(index);
-      figure.append(button, figcaption);
-      item.append(figure);
-      gallery.append(item);
-    });
+      if (availableFiles.length) return availableFiles;
+      return legacyImageFiles;
+    }
+
+    function renderGallery() {
+      gallery.innerHTML = "";
+
+      imageFiles.forEach((file, index) => {
+        const item = document.createElement("li");
+        item.className = "gallery-item";
+
+        const figure = document.createElement("figure");
+        const button = document.createElement("button");
+        button.className = "gallery-button";
+        button.type = "button";
+        button.setAttribute("aria-label", `Ampliar ${artworkLabel(index)}`);
+        button.dataset.index = String(index);
+
+        const image = document.createElement("img");
+        image.src = imageUrl(file);
+        image.alt = `${artworkLabel(index)}; fotografía de una pieza artesanal en metal o madera`;
+        image.loading = index < 6 ? "eager" : "lazy";
+        image.decoding = "async";
+
+        button.append(image);
+
+        const figcaption = document.createElement("figcaption");
+        figcaption.textContent = artworkLabel(index);
+
+        figure.append(button, figcaption);
+        item.append(figure);
+        gallery.append(item);
+      });
+    }
 
     function showImage(index) {
+      if (!imageFiles.length) return;
+
       selectedIndex = (index + imageFiles.length) % imageFiles.length;
       const label = artworkLabel(selectedIndex);
       modalImage.src = imageUrl(imageFiles[selectedIndex]);
@@ -333,6 +363,13 @@
       if (event.key === "ArrowLeft") showImage(selectedIndex - 1);
       if (event.key === "ArrowRight") showImage(selectedIndex + 1);
     });
+
+    async function initGallery() {
+      imageFiles = await resolveImageFiles();
+      renderGallery();
+    }
+
+    initGallery();
   </script>
 </body>
 </html>
